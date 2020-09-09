@@ -147,3 +147,30 @@ class QuestionnaireResource(Resource):
         if "son" not in content_type:
             return CommonResponse(404, False, "Incorrect Content-Type", {})()
         res_data = request.json
+
+
+class EChartResource(Resource):
+    def get(self, questionnaire_id):
+        questionnaire = Questionnaire.query.filter(Questionnaire.id == questionnaire_id).first()
+        if not questionnaire:
+            return CommonResponse(404, False, "Questionnaire not found", {})()
+        data = vars(questionnaire)
+        data.update(questions=[])
+        questions = questionnaire.questions
+        for question in questions:
+            question_data = vars(question)
+            question_data.update(answers=[])
+            data.get("questions").append(question_data)
+            answers = question.answers
+            answer_datas = question.answer_data
+            if question.answer_type == 3:
+                for answer_data in answer_datas:
+                    answer_datum = {"name": answer_data.answer, "value": 1}
+                    question_data.get("answers").append(answer_datum)
+            else:
+                for answer in answers:
+                    answer_datum = {"name": answer.answer, "value": answer.data.count()}
+                    question_data.get("answers").append(answer_datum)
+            question_data.pop('_sa_instance_state')
+        data.pop('_sa_instance_state')
+        return CommonResponse(200, True, "", data)()

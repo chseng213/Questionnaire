@@ -26,6 +26,7 @@ class QuestionnaireQuestion(db.Model):
     answer_type = db.Column(db.Integer)
     required = db.Column(db.Integer, nullable=False, default=0)
     answers = db.relationship("QuestionnaireAnswer", backref='question', lazy='dynamic')
+    answer_data = db.relationship("QuestionnaireData", backref='question_obj', lazy='dynamic')
 
 
 class QuestionnaireAnswer(db.Model):
@@ -44,6 +45,6 @@ class QuestionnaireData(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer)
     questionnaire_id = db.Column(db.Integer)
-    question_id = db.Column(db.Integer)
+    question_id = db.Column(db.Integer, db.ForeignKey("questionnaire_question.id"))
     answer_id = db.Column(db.Integer, db.ForeignKey("questionnaire_answer.id"))
     answer = db.Column(db.Text)

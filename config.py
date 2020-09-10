@@ -8,11 +8,11 @@ DATABASE = {
         {
             'ENGINE': 'mysql',
             # 'HOST': '192.168.2.222',
-            'HOST': '47.244.91.219',
-            'PASSWORD': '@GoTo1024',
-            'USER': 'fcgsports',
+            'HOST': '',
+            'PASSWORD': '',
+            'USER': '',
             'PORT': '3306',
-            'NAME': 'fcgsports',
+            'NAME': '',
             "CHARSET": "utf8"
         },
     'default':

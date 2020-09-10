@@ -55,7 +55,12 @@ pip install -r requirements.txt
 
 ### debug启动
 ``` 
+# 1.
 pipenv run python manager.py runserver 
+
+#2.
+source venv/bin/active
+python manager.py runserver 
 ```
 
 ## 服务部署

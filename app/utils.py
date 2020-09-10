@@ -22,8 +22,9 @@ class CodeMsg:
             self.msg = msg
 
     SUCCESS = CM(200, "成功")
-    TIMEOUT = CM(401, "超过截止时间")
-    AUTH_FAILED = CM(403, "用户认证失败")
+    TIMEOUT = CM(404, "超过截止时间")
+    AUTH_FAILED = CM(401, "用户认证失败")
+
 
 # class CommonApi(Api):
 #     def handle_error(self, e):
@@ -130,6 +131,9 @@ class CommonJsonRet:
     def to_json(self):
         return self.__dict__
 
+    def __call__(self, *args, **kwargs):
+        return self.to_json()
+
 
 class AuthToken:
 
@@ -171,7 +175,7 @@ class AuthToken:
 
 
 class CommonResponse:
-    def __init__(self, code, success, data, msg):
+    def __init__(self, code, success, msg, data):
         self.data = data
         self.success = success
         self.code = code

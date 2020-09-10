@@ -40,9 +40,19 @@ E7%9A%84)
 
 ## 测试环境
 ### 安装虚拟环境
+**使用pipenv安装虚拟环境**
 ```
 pipenv install
 ```
+**或者使用virtualenv**
+``` 
+# 使用-p指定python版本 virtualenv -p /usr/bin/python2.7 ENV2.7
+virtualenv venv
+source venv/bin/active
+pip install -r requirements.txt
+
+```
+
 ### debug启动
 ``` 
 pipenv run python manager.py runserver 

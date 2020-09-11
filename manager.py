@@ -35,11 +35,11 @@ def server_error(error):
 
 manager.add_command("runserver", Server(host="0.0.0.0", port=9009))
 
-# for logger in (
-#         app.logger,
-#         logging.getLogger('sqlalchemy'),
-# ):
-#     logger.addHandler(my_handler)
+for logger in (
+        app.logger,
+        # logging.getLogger('sqlalchemy'),
+):
+    logger.addHandler(my_handler)
 
 if __name__ == '__main__':
     manager.run()

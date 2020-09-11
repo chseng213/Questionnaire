@@ -3,8 +3,8 @@ import time
 from flask import request
 from flask_restful import Resource
 
-from app.models import Questionnaire, QuestionnaireData
-from app.utils import AuthToken, CommonResponse, WTOKEN
+from app.models import Questionnaire, QuestionnaireData, QuestionnaireQuestion, QuestionnaireAnswer
+from app.utils import AuthToken, CommonJsonRet, WTOKEN
 from ext_app import db
 
 
@@ -16,7 +16,7 @@ class QuestionResource(Resource):
         questionnaire = Questionnaire.query.filter(Questionnaire.id == questionnaire_id,
                                                    Questionnaire.is_delete == 0).first()
         if not questionnaire:
-            return CommonResponse(404, False, "Questionnaire not found", {})()
+            return CommonJsonRet(404, False, "Questionnaire not found", {})()
         data = vars(questionnaire)
         # print(data)
         data.update(questions=[])
@@ -38,7 +38,7 @@ class QuestionResource(Resource):
         if questionnaire_data:
             has_participated = 1
         data.update(has_participated=has_participated)
-        return CommonResponse(200, True, "", data)()
+        return CommonJsonRet(200, True, "", data)()
 
     @AuthToken()
     def post(self, questionnaire_id, user_id):
@@ -55,19 +55,18 @@ class QuestionResource(Resource):
         """
         content_type = request.headers.get("Content-Type")
         if "son" not in content_type:
-            return CommonResponse(404, False, "Incorrect Content-Type", {})()
+            return CommonJsonRet(404, False, "Incorrect Content-Type", {})()
         questionnaire = Questionnaire.query.filter(Questionnaire.id == questionnaire_id,
                                                    Questionnaire.is_delete == 0).first()
         if not questionnaire:
-            return CommonResponse(404, False, "Questionnaire not found", {})()
+            return CommonJsonRet(404, False, "Questionnaire not found", {})()
         # 过期时间问题
         if questionnaire.end_at < time.time():
-            return CommonResponse(404, False, "Questionnaire Expired", {})()
-
+            return CommonJsonRet(404, False, "Questionnaire Expired", {})()
         questionnaire_data = QuestionnaireData.query.filter(QuestionnaireData.user_id == user_id,
                                                             QuestionnaireData.questionnaire_id == questionnaire_id).first()
         if questionnaire_data:
-            return CommonResponse(404, False, "Incorrect Content-Type", {})()
+            return CommonJsonRet(404, False, "User Has Been Participated ", {})()
 
         res_data = request.json
         print(res_data)
@@ -84,7 +83,7 @@ class QuestionResource(Resource):
         db.session.bulk_save_objects(item_list)
         db.session.commit()
         db.session.close()
-        return CommonResponse(200, True, "ok", {})()
+        return CommonJsonRet(200, True, "success", {})()
 
 
 class QuestionnaireResource(Resource):
@@ -121,31 +120,63 @@ class QuestionnaireResource(Resource):
         content_type = request.headers.get("Content-Type")
         w_token = request.headers.get("WToken")
         if w_token != WTOKEN:
-            return CommonResponse(401, False, "Insufficient permissions", {})()
+            return CommonJsonRet(401, False, "Insufficient permissions", {})()
         if "son" not in content_type:
-            return CommonResponse(404, False, "Incorrect Content-Type", {})()
+            return CommonJsonRet(404, False, "Incorrect Content-Type", {})()
         res_data = request.json
-        item_list = []
-        questionnaire = Questionnaire(
 
+        questionnaire = Questionnaire(
+            title=res_data.get("title"),
+            description=res_data.get("description"),
+            create_at=res_data.get("create_at"),
+            end_at=res_data.get("end_at"),
+            start_at=res_data.get("start_at")
         )
+        db.session.add(questionnaire)
+        db.session.commit()
+        questions = res_data.get("questions")
+        for i, question in enumerate(questions, 1):
+            question_obj = QuestionnaireQuestion(
+                questionnaire_id=questionnaire.id,
+                number=i,
+                question=question.get("question"),
+                answer_type=question.get("answer_type"),
+                required=question.get("required")
+            )
+            db.session.add(question_obj)
+            db.session.commit()
+            question_id = question_obj.id
+            answers = question.get("answers")
+            if answers:
+                answer_list = []
+                for j, answer in enumerate(answers, 1):
+                    answer_obj = QuestionnaireAnswer(
+                        question_id=question_id,
+                        number=j,
+                        answer=answer.get("answer")
+                    )
+                    answer_list.append(answer_obj)
+                db.session.bulk_save_objects(answer_list)
+                db.session.commit()
+
+        return CommonJsonRet(200, True, "", {})()
 
     def put(self):
         content_type = request.headers.get("Content-Type")
         w_token = request.headers.get("WToken")
         if w_token != WTOKEN:
-            return CommonResponse(401, False, "Insufficient permissions", {})()
+            return CommonJsonRet(401, False, "Insufficient permissions", {})()
         if "son" not in content_type:
-            return CommonResponse(404, False, "Incorrect Content-Type", {})()
+            return CommonJsonRet(404, False, "Incorrect Content-Type", {})()
         res_data = request.json
 
     def delete(self):
         content_type = request.headers.get("Content-Type")
         w_token = request.headers.get("WToken")
         if w_token != WTOKEN:
-            return CommonResponse(401, False, "Insufficient permissions", {})()
+            return CommonJsonRet(401, False, "Insufficient permissions", {})()
         if "son" not in content_type:
-            return CommonResponse(404, False, "Incorrect Content-Type", {})()
+            return CommonJsonRet(404, False, "Incorrect Content-Type", {})()
         res_data = request.json
 
 
@@ -153,7 +184,7 @@ class EChartResource(Resource):
     def get(self, questionnaire_id):
         questionnaire = Questionnaire.query.filter(Questionnaire.id == questionnaire_id).first()
         if not questionnaire:
-            return CommonResponse(404, False, "Questionnaire not found", {})()
+            return CommonJsonRet(404, False, "Questionnaire not found", {})()
         data = vars(questionnaire)
         data.update(questions=[])
         questions = questionnaire.questions
@@ -173,4 +204,4 @@ class EChartResource(Resource):
                     question_data.get("answers").append(answer_datum)
             question_data.pop('_sa_instance_state')
         data.pop('_sa_instance_state')
-        return CommonResponse(200, True, "", data)()
+        return CommonJsonRet(200, True, "", data)()

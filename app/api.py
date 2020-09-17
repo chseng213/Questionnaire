@@ -2,6 +2,7 @@ import time
 
 from flask import request
 from flask_restful import Resource
+from sqlalchemy import desc
 
 from app.models import Questionnaire, QuestionnaireData, QuestionnaireQuestion, QuestionnaireAnswer
 from app.utils import AuthToken, CommonJsonRet, WTOKEN
@@ -10,11 +11,10 @@ from ext_app import db
 
 class QuestionResource(Resource):
     @AuthToken()
-    def get(self, questionnaire_id, user_id):
-        print(user_id)
+    def get(self,  user_id):
         # print(request.values.get("b"))
-        questionnaire = Questionnaire.query.filter(Questionnaire.id == questionnaire_id,
-                                                   Questionnaire.is_delete == 0).first()
+        questionnaire = Questionnaire.query.filter(
+            Questionnaire.is_delete == 0).order_by(desc(Questionnaire.id)).first()
         if not questionnaire:
             return CommonJsonRet(404, False, "Questionnaire not found", {})()
         data = vars(questionnaire)
@@ -33,7 +33,7 @@ class QuestionResource(Resource):
             question_data.pop('_sa_instance_state')
         data.pop('_sa_instance_state')
         questionnaire_data = QuestionnaireData.query.filter(QuestionnaireData.user_id == user_id,
-                                                            QuestionnaireData.questionnaire_id == questionnaire_id).first()
+                                                            QuestionnaireData.questionnaire_id == questionnaire.id).first()
         has_participated = 0
         if questionnaire_data:
             has_participated = 1
@@ -41,7 +41,7 @@ class QuestionResource(Resource):
         return CommonJsonRet(200, True, "", data)()
 
     @AuthToken()
-    def post(self, questionnaire_id, user_id):
+    def post(self, user_id):
         """
         [{
                 question_id:1,
@@ -56,15 +56,15 @@ class QuestionResource(Resource):
         content_type = request.headers.get("Content-Type")
         if "son" not in content_type:
             return CommonJsonRet(404, False, "Incorrect Content-Type", {})()
-        questionnaire = Questionnaire.query.filter(Questionnaire.id == questionnaire_id,
-                                                   Questionnaire.is_delete == 0).first()
+        questionnaire = Questionnaire.query.filter(
+            Questionnaire.is_delete == 0).order_by(desc(Questionnaire.id)).first()
         if not questionnaire:
             return CommonJsonRet(404, False, "Questionnaire not found", {})()
         # 过期时间问题
         if questionnaire.end_at < time.time():
             return CommonJsonRet(404, False, "Questionnaire Expired", {})()
         questionnaire_data = QuestionnaireData.query.filter(QuestionnaireData.user_id == user_id,
-                                                            QuestionnaireData.questionnaire_id == questionnaire_id).first()
+                                                            QuestionnaireData.questionnaire_id == questionnaire.id).first()
         if questionnaire_data:
             return CommonJsonRet(404, False, "User Has Been Participated ", {})()
 
@@ -76,7 +76,7 @@ class QuestionResource(Resource):
                 question_id=res_datum.get("question_id"),
                 answer_id=res_datum.get("answer_id"),
                 answer=res_datum.get("answer"),
-                questionnaire_id=questionnaire_id,
+                questionnaire_id=questionnaire.id,
                 user_id=user_id,
             )
             item_list.append(questionnaire_data)

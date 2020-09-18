@@ -11,7 +11,7 @@ from ext_app import db
 
 class QuestionResource(Resource):
     @AuthToken()
-    def get(self,  user_id):
+    def get(self, user_id):
         # print(request.values.get("b"))
         questionnaire = Questionnaire.query.filter(
             Questionnaire.is_delete == 0).order_by(desc(Questionnaire.id)).first()
@@ -49,7 +49,6 @@ class QuestionResource(Resource):
                 answer:"548645658",
                 questionnaire_id:1,
         }]
-        :param questionnaire_id:
         :param user_id:
         :return:
         """
@@ -72,14 +71,37 @@ class QuestionResource(Resource):
         print(res_data)
         item_list = []
         for res_datum in res_data:
-            questionnaire_data = QuestionnaireData(
-                question_id=res_datum.get("question_id"),
-                answer_id=res_datum.get("answer_id"),
-                answer=res_datum.get("answer"),
-                questionnaire_id=questionnaire.id,
-                user_id=user_id,
-            )
-            item_list.append(questionnaire_data)
+            if isinstance(res_datum.get("answer_id"), list):
+                if res_datum.get("answer_id"):
+                    for answer_id in res_datum.get("answer_id"):
+                        questionnaire_data = QuestionnaireData(
+                            question_id=res_datum.get("question_id"),
+                            answer_id=answer_id,
+                            answer=res_datum.get("answer"),
+                            questionnaire_id=questionnaire.id,
+                            user_id=user_id,
+                        )
+                        item_list.append(questionnaire_data)
+                else:
+                    questionnaire_data = QuestionnaireData(
+                        question_id=res_datum.get("question_id"),
+                        answer_id=None,
+                        answer=res_datum.get("answer"),
+                        questionnaire_id=questionnaire.id,
+                        user_id=user_id,
+                    )
+                    item_list.append(questionnaire_data)
+            elif isinstance(res_datum.get("answer_id"), int):
+                questionnaire_data = QuestionnaireData(
+                    question_id=res_datum.get("question_id"),
+                    answer_id=res_datum.get("answer_id"),
+                    answer=res_datum.get("answer"),
+                    questionnaire_id=questionnaire.id,
+                    user_id=user_id,
+                )
+                item_list.append(questionnaire_data)
+            else:
+                return CommonJsonRet(400, False, "Error answer_id type", {})()
         db.session.bulk_save_objects(item_list)
         db.session.commit()
         db.session.close()

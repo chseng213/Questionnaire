@@ -1,18 +1,32 @@
 import json
-import sys
+# import sys
+import time
 from functools import wraps
 
 import requests
 import six
-from flask import request, abort, current_app, got_request_exception
+from flask import request, abort, current_app, got_request_exception, jsonify
+# from flask_restful import Api
 from flask_restful import Api
 from flask_restful.reqparse import Argument, RequestParser, Namespace
 from werkzeug import exceptions
-from werkzeug.datastructures import Headers
+# from werkzeug.datastructures import Headers
 from werkzeug.exceptions import HTTPException
+from werkzeug.http import HTTP_STATUS_CODES
 
 AUTH_URL = "https://apiv7.scoreradar.net/v1/auth/check"
+AUTH_URL = "http://47.56.109.14:8081/v1/auth/check"
+OSS_URL = "https://cdn.scoreradar.live/scoreradar/team/{}.png"
 WTOKEN = "fcg-E3jOeQe8Zz8"
+
+
+def get_order_code():
+    """
+    生成简易的订单编号
+    :return:
+    """
+    order_no = str(time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))) + str(time.time()).replace('.', '')[-8:]
+    return order_no
 
 
 class CodeMsg:
@@ -26,84 +40,29 @@ class CodeMsg:
     AUTH_FAILED = CM(401, "用户认证失败")
 
 
-# class CommonApi(Api):
-#     def handle_error(self, e):
-#         """
-#
-#         :param e: the raised Exception object
-#         :type e: Exception
-#
-#         """
-#         got_request_exception.send(current_app._get_current_object(), exception=e)
-#
-#         if not isinstance(e, HTTPException) and current_app.propagate_exceptions:
-#             exc_type, exc_value, tb = sys.exc_info()
-#             if exc_value is e:
-#                 raise
-#             else:
-#                 raise e
-#
-#         headers = Headers()
-#         if isinstance(e, HTTPException):
-#             if e.response is not None:
-#                 # If HTTPException is initialized with a response, then return e.get_response().
-#                 # This prevents specified error response from being overridden.
-#                 # eg. HTTPException(response=Response("Hello World"))
-#                 resp = e.get_response()
-#                 return resp
-#
-#             code = e.code
-#             default_data = {
-#                 'message': getattr(e, 'description', http_status_message(code))
-#             }
-#             headers = e.get_response().headers
-#         else:
-#             code = 500
-#             default_data = {
-#                 'message': http_status_message(code),
-#             }
-#
-#         # Werkzeug exceptions generate a content-length header which is added
-#         # to the response in addition to the actual content-length header
-#         # https://github.com/flask-restful/flask-restful/issues/534
-#         remove_headers = ('Content-Length',)
-#
-#         for header in remove_headers:
-#             headers.pop(header, None)
-#
-#         data = getattr(e, 'data', default_data)
-#
-#         if code and code >= 500:
-#             exc_info = sys.exc_info()
-#             if exc_info[1] is None:
-#                 exc_info = None
-#             current_app.log_exception(exc_info)
-#
-#         error_cls_name = type(e).__name__
-#         if error_cls_name in self.errors:
-#             custom_data = self.errors.get(error_cls_name, {})
-#             code = custom_data.get('status', 500)
-#             data.update(custom_data)
-#
-#         if code == 406 and self.default_mediatype is None:
-#             # if we are handling NotAcceptable (406), make sure that
-#             # make_response uses a representation we support as the
-#             # default mediatype (so that make_response doesn't throw
-#             # another NotAcceptable error).
-#             supported_mediatypes = list(self.representations.keys())
-#             fallback_mediatype = supported_mediatypes[0] if supported_mediatypes else "text/plain"
-#             resp = self.make_response(
-#                 data,
-#                 code,
-#                 headers,
-#                 fallback_mediatype = fallback_mediatype
-#             )
-#         else:
-#             resp = self.make_response(data, code, headers)
-#
-#         if code == 401:
-#             resp = self.unauthorized(resp)
-#         return resp
+class ExtendedAPI(Api):
+    """This class overrides 'handle_error' method of 'Api' class ,
+    to extend global exception handing functionality of 'flask-restful'.
+    """
+
+    def handle_error(self, err):
+        """It helps preventing writing unnecessary
+        try/except block though out the application
+        """
+        # log every exception raised in the application
+        # Handle HTTPExceptions
+        if isinstance(err, HTTPException):
+            return jsonify(err.data), 200
+        # If msg attribute is not set,
+        # consider it as Python core exception and
+        # hide sensitive error info from end user
+        if not getattr(err, 'message', None):
+            return jsonify({
+                'message': 'Server has encountered some error'
+            }), 200
+        # Handle application specific custom exceptions
+        return jsonify(**err.kwargs), 200
+
 
 def common_abort(http_status_code, **kwargs):
     """Raise a HTTPException for the given http_status_code. Attach any keyword
@@ -146,6 +105,8 @@ class AuthToken:
                                    headers={
                                        'Authorization': token
                                    })
+
+                print(res.json())
                 break
             except:
                 i += 1

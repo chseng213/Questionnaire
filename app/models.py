@@ -56,17 +56,20 @@ class Races(db.Model):
     """
     __tablename__ = "races"
 
-    race_id = db.Column(db.Integer, primary_key=True)
-    race_time = db.Column(db.Integer, nullable=False)
-    home_id = db.Column(db.Integer, nullable=False)
-    guest_id = db.Column(db.Integer, nullable=False)
-    league_id = db.Column(db.Integer, nullable=False)
+    race_id = db.Column(db.Integer, db.ForeignKey("jc_race.race_id"), primary_key=True)
+    _jc_race = db.relationship("JCRace", backref='_race', uselist=False, foreign_keys=race_id)
+    race_time = db.Column(db.Integer)
+    home_id = db.Column(db.Integer, db.ForeignKey("team.team_id"))
+    _home = db.relationship("Team", uselist=False, foreign_keys=home_id)
+    guest_id = db.Column(db.Integer, db.ForeignKey("team.team_id"), nullable=False)
+    _guest = db.relationship("Team", uselist=False, foreign_keys=guest_id)
+    league_id = db.Column(db.Integer, db.ForeignKey("league.league_id"), nullable=False)
+    _league = db.relationship("League", uselist=False, foreign_keys=league_id)
     status = db.Column(db.VARCHAR(5))
     en_status = db.Column(db.VARCHAR(5))
     status_s = db.Column(db.VARCHAR(5), nullable=False)
     half_scores = db.Column(db.VARCHAR(10), nullable=False, default="")
     scores = db.Column(db.VARCHAR(10), nullable=False, default="")
-    # focus = db.Column(db.Integer, default=0)
     is_started = db.Column(db.Integer, nullable=False, default=1)
     is_delete = db.Column(db.Integer, nullable=False, default=0)
     cuptree_id = db.Column(db.Integer, nullable=False, default=0)
@@ -123,6 +126,19 @@ class JCRace(db.Model):
     race_id = db.Column(db.Integer, primary_key=True)
     selected = db.Column(db.Integer, default=0)
     settled = db.Column(db.Integer, default=0)
+    # _race = db.relationship("Races", backref='_jc_race',  uselist=False)
+    _odds = db.relationship("JCCorrectScore", backref='jc_race', lazy='dynamic', uselist=True)
+
+
+class UserProfile(db.Model):
+    """
+    赛程表
+    """
+    __tablename__ = "user_profile"
+
+    id = db.Column(db.Integer, db.ForeignKey("jcticket.uid"), primary_key=True)
+    username = db.Column(db.VARCHAR(255))
+    avatar = db.Column(db.VARCHAR(255))
 
 
 class JCCorrectScore(db.Model):
@@ -132,10 +148,11 @@ class JCCorrectScore(db.Model):
     """
     __tablename__ = "jc_correct_score"
 
-    race_id = db.Column(db.Integer, primary_key=True)
+    race_id = db.Column(db.Integer, db.ForeignKey("jc_race.race_id"),primary_key=True)
     odds = db.Column(db.VARCHAR(200))
     header = db.Column(db.VARCHAR(200))
-    name = db.Column(db.VARCHAR(200))
+    rank = db.Column(db.Integer)
+    name = db.Column(db.VARCHAR(200),primary_key=True)
 
 
 class JCTicket(db.Model):
@@ -147,6 +164,7 @@ class JCTicket(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     uid = db.Column(db.Integer)
+    user = db.relationship("UserProfile", backref='account', uselist=False)
     cat = db.Column(db.Integer, default=time.time)
     rid = db.Column(db.Integer)
     number = db.Column(db.Integer)
@@ -159,7 +177,7 @@ class JCTicket(db.Model):
     guest = db.Column(db.VARCHAR(255))
     scores = db.Column(db.VARCHAR(255))
     result = db.Column(db.VARCHAR(200), default="")
-    odds = db.Column(db.DOUBLE)
+    odds = db.Column(db.Numeric(7, 2))
 
 
 class Orders(db.Model):

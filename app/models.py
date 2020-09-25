@@ -5,6 +5,7 @@ from ext_app import db
 
 class Questionnaire(db.Model):
     __tablename__ = "questionnaire"
+    __bind_key__ = "activity"
 
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.Text)
@@ -18,6 +19,7 @@ class Questionnaire(db.Model):
 
 class QuestionnaireQuestion(db.Model):
     __tablename__ = "questionnaire_question"
+    __bind_key__ = "activity"
 
     id = db.Column(db.Integer, primary_key=True)
     questionnaire_id = db.Column(db.Integer, db.ForeignKey("questionnaire.id"))
@@ -31,16 +33,18 @@ class QuestionnaireQuestion(db.Model):
 
 class QuestionnaireAnswer(db.Model):
     __tablename__ = "questionnaire_answer"
+    __bind_key__ = "activity"
 
     id = db.Column(db.Integer, primary_key=True)
     question_id = db.Column(db.Integer, db.ForeignKey("questionnaire_question.id"))
-    answer = db.Column(db.Text)
+    answer = db.Column(db.VARCHAR(1000))
     number = db.Column(db.Integer)
     data = db.relationship("QuestionnaireData", backref='answer_obj', lazy='dynamic')
 
 
 class QuestionnaireData(db.Model):
     __tablename__ = "questionnaire_data"
+    __bind_key__ = "activity"
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer)
@@ -50,21 +54,34 @@ class QuestionnaireData(db.Model):
     answer = db.Column(db.Text)
 
 
+class JCRace(db.Model):
+    """
+    赛程表
+    """
+    __tablename__ = "jc_race"
+    __bind_key__ = "activity"
+
+    race_id = db.Column(db.Integer, primary_key=True)
+    selected = db.Column(db.Integer, default=0)
+    settled = db.Column(db.Integer, default=0)
+    # _race = db.relationship("Races", backref='_jc_race',  uselist=False)
+    _odds = db.relationship("JCCorrectScore", backref='jc_race', lazy='dynamic', uselist=True)
+
+
 class Races(db.Model):
     """
     赛事表
     """
     __tablename__ = "races"
 
-    race_id = db.Column(db.Integer, db.ForeignKey("jc_race.race_id"), primary_key=True)
-    _jc_race = db.relationship("JCRace", backref='_race', uselist=False, foreign_keys=race_id)
+    race_id = db.Column(db.Integer, primary_key=True)
     race_time = db.Column(db.Integer)
-    home_id = db.Column(db.Integer, db.ForeignKey("team.team_id"))
-    _home = db.relationship("Team", uselist=False, foreign_keys=home_id)
-    guest_id = db.Column(db.Integer, db.ForeignKey("team.team_id"), nullable=False)
-    _guest = db.relationship("Team", uselist=False, foreign_keys=guest_id)
-    league_id = db.Column(db.Integer, db.ForeignKey("league.league_id"), nullable=False)
-    _league = db.relationship("League", uselist=False, foreign_keys=league_id)
+    home_id = db.Column(db.Integer)
+    # _home = db.relationship("Team", lazy="joined", uselist=False, foreign_keys=home_id)
+    guest_id = db.Column(db.Integer, nullable=False)
+    # _guest = db.relationship("Team", lazy="joined", uselist=False, foreign_keys=guest_id)
+    league_id = db.Column(db.Integer, nullable=False)
+    # _league = db.relationship("League", lazy="joined", uselist=False, foreign_keys=league_id)
     status = db.Column(db.VARCHAR(5))
     en_status = db.Column(db.VARCHAR(5))
     status_s = db.Column(db.VARCHAR(5), nullable=False)
@@ -117,17 +134,23 @@ class League(db.Model):
     juesha_rate = db.Column(db.VARCHAR(5), nullable=False, default="")
 
 
-class JCRace(db.Model):
+class JCRanking(db.Model):
     """
-    赛程表
+    排行表
     """
-    __tablename__ = "jc_race"
+    __tablename__ = "jc_ranking"
+    __bind_key__ = "activity"
 
-    race_id = db.Column(db.Integer, primary_key=True)
-    selected = db.Column(db.Integer, default=0)
-    settled = db.Column(db.Integer, default=0)
-    # _race = db.relationship("Races", backref='_jc_race',  uselist=False)
-    _odds = db.relationship("JCCorrectScore", backref='jc_race', lazy='dynamic', uselist=True)
+    id = db.Column(db.Integer, primary_key=True)
+    race_id = db.Column(db.Integer)
+    user_id = db.Column(db.Integer)
+    pay_num = db.Column(db.Integer)
+    is_delete = db.Column(db.Integer, default=0)
+    settle_num = db.Column(db.Integer, default=0)
+    username = db.Column(db.VARCHAR(255))
+    vote = db.Column(db.VARCHAR(255))
+    avatar = db.Column(db.VARCHAR(255))
+    title = db.Column(db.VARCHAR(255))
 
 
 class UserProfile(db.Model):
@@ -136,7 +159,7 @@ class UserProfile(db.Model):
     """
     __tablename__ = "user_profile"
 
-    id = db.Column(db.Integer, db.ForeignKey("jcticket.uid"), primary_key=True)
+    id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.VARCHAR(255))
     avatar = db.Column(db.VARCHAR(255))
 
@@ -147,12 +170,13 @@ class JCCorrectScore(db.Model):
 
     """
     __tablename__ = "jc_correct_score"
+    __bind_key__ = "activity"
 
-    race_id = db.Column(db.Integer, db.ForeignKey("jc_race.race_id"),primary_key=True)
+    race_id = db.Column(db.Integer, db.ForeignKey("jc_race.race_id"), primary_key=True)
     odds = db.Column(db.VARCHAR(200))
     header = db.Column(db.VARCHAR(200))
-    rank = db.Column(db.Integer)
-    name = db.Column(db.VARCHAR(200),primary_key=True)
+    sort = db.Column(db.Integer)
+    name = db.Column(db.VARCHAR(200), primary_key=True)
 
 
 class JCTicket(db.Model):
@@ -160,22 +184,21 @@ class JCTicket(db.Model):
     下注记录表
     """
     __tablename__ = "jcticket"
-    __bind_key__ = "jifen"
+    __bind_key__ = "activity"
 
     id = db.Column(db.Integer, primary_key=True)
     uid = db.Column(db.Integer)
-    user = db.relationship("UserProfile", backref='account', uselist=False)
-    cat = db.Column(db.Integer, default=time.time)
+    # user = db.relationship("UserProfile", backref='account', uselist=False)
+    cat = db.Column(db.Integer)
     rid = db.Column(db.Integer)
     number = db.Column(db.Integer)
     status = db.Column(db.Integer, default=1)
-    settle_at = db.Column(db.Integer, default=time.time)
+    settle_at = db.Column(db.Integer, default=0)
     settle_number = db.Column(db.Integer, default=0)
     vote = db.Column(db.VARCHAR(255))
     league = db.Column(db.VARCHAR(255))
     home = db.Column(db.VARCHAR(255))
     guest = db.Column(db.VARCHAR(255))
-    scores = db.Column(db.VARCHAR(255))
     result = db.Column(db.VARCHAR(200), default="")
     odds = db.Column(db.Numeric(7, 2))
 
@@ -188,7 +211,7 @@ class Orders(db.Model):
     __bind_key__ = "jifen"
 
     id = db.Column(db.Integer, primary_key=True)
-    status = db.Column(db.Integer)
+    status = db.Column(db.Integer, default=1)
     user_id = db.Column(db.Integer)
     create_at = db.Column(db.Integer)
     pay_time = db.Column(db.Integer)
@@ -210,9 +233,9 @@ class PointTrace(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer)
     create_at = db.Column(db.Integer)
-    title = db.Column(db.VARCHAR(255))
-    way = db.Column(db.VARCHAR(255))
-    point = db.Column(db.Integer)
+    title = db.Column(db.VARCHAR(255), default="Pick'em Successful(score)")
+    way = db.Column(db.VARCHAR(255), default="Pick'em Successful(score)")
+    points = db.Column(db.Integer)
     status = db.Column(db.Integer, default=1)
     desc = db.Column(db.VARCHAR(255))
     order_num = db.Column(db.VARCHAR(255))

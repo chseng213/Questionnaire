@@ -1,23 +1,39 @@
 import json
-# import sys
 import time
 from functools import wraps
 
 import requests
 import six
-from flask import request, abort, current_app, got_request_exception, jsonify
-# from flask_restful import Api
+from flask import request, abort, current_app, jsonify
 from flask_restful import Api
 from flask_restful.reqparse import Argument, RequestParser, Namespace
 from werkzeug import exceptions
-# from werkzeug.datastructures import Headers
 from werkzeug.exceptions import HTTPException
-from werkzeug.http import HTTP_STATUS_CODES
 
 AUTH_URL = "https://apiv7.scoreradar.net/v1/auth/check"
 AUTH_URL = "http://47.56.109.14:8081/v1/auth/check"
 OSS_URL = "https://cdn.scoreradar.live/scoreradar/team/{}.png"
 WTOKEN = "fcg-E3jOeQe8Zz8"
+
+
+def timeit(func):
+    # 避免函数的文档和返回值的丢失
+    @wraps(func)
+    def wrap(*args, **kwargs):
+        """
+
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        start_time = time.time()
+        # 返回函数返回值
+        res = func(*args, **kwargs)
+        end_time = time.time()
+        print("耗时:%.2fs" % (end_time - start_time))
+        return res
+
+    return wrap
 
 
 def get_order_code():
@@ -56,12 +72,14 @@ class ExtendedAPI(Api):
         # If msg attribute is not set,
         # consider it as Python core exception and
         # hide sensitive error info from end user
+        print(err)
         if not getattr(err, 'message', None):
             return jsonify({
-                'message': 'Server has encountered some error'
+                "code": 400,
+                'msg': 'Server has encountered some error'
             }), 200
         # Handle application specific custom exceptions
-        return jsonify(**err.kwargs), 200
+        return jsonify(**err.kwargs, code=400), 200
 
 
 def common_abort(http_status_code, **kwargs):
@@ -95,7 +113,7 @@ class CommonJsonRet:
 
 
 class AuthToken:
-
+    @timeit
     def auth_token(self, url, token):
         res = {}
         i = 0
@@ -187,9 +205,10 @@ class CommonRequestParser(RequestParser):
             if found or arg.store_missing:
                 namespace[arg.dest or arg.name] = value
         if errors:
+            print(errors)
             common_abort(http_error_code, **{
                 "code": http_error_code,
-                "msg": errors,
+                "msg": errors.values(),
                 "data": {},
                 "success": False
             })

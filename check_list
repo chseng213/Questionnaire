@@ -1,0 +1,13 @@
+* config.py
+    sql uri
+* app/utils.py
+    auth url
+    team logo url
+* survey.ini
+    command  python3
+    log file path
+* crontab
+    crontab_task.py
+        file path
+    jc_race.py
+        sql uri

@@ -104,6 +104,34 @@ class QuestionResource(Resource):
                 item_list.append(questionnaire_data)
             else:
                 return CommonJsonRet(400, False, "Error answer_id type", {})()
+        account = Accounts.query.filter(Accounts.user_id == user_id).first()
+        cat = int(time.time())
+        account.available = account.available + 50000
+        order_num = get_order_code()
+        order_desc = f"Questionnaire points"
+
+        pt = PointTrace(
+            user_id=user_id,
+            create_at=cat,
+            points=50000,
+            desc=order_desc,
+            title=order_desc,
+            way=order_desc,
+            order_num=order_num,
+            current=account.available,
+        )
+        item_list.append(pt)
+        order = Orders(
+            user_id=user_id,
+            order_num=order_num,
+            create_at=cat,
+            pay_time=cat,
+            number=50000,
+            source="Questionnaire points",
+            desc=order_desc,
+        )
+        item_list.append(order)
+
         db.session.bulk_save_objects(item_list)
         db.session.commit()
         db.session.close()
@@ -220,8 +248,9 @@ class EChartResource(Resource):
             answer_datas = question.answer_data
             if question.answer_type == 3:
                 for answer_data in answer_datas:
-                    answer_datum = {"name": answer_data.answer, "value": 1}
-                    question_data.get("answers").append(answer_datum)
+                    if answer_data.answer:
+                        answer_datum = {"name": answer_data.answer, "value": 1}
+                        question_data.get("answers").append(answer_datum)
             else:
                 for answer in answers:
                     answer_datum = {"name": answer.answer, "value": answer.data.count()}

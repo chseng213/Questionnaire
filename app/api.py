@@ -265,13 +265,17 @@ class EChartResource(Resource):
 
 class CorrectScores(Resource):
     @AuthToken()
-    def get(self, race_id, user_id):
+    def get(self, user_id):
         """
         判断比赛是否被选中
-        :param race_id:
         :param user_id:
         :return:
         """
+        jc_race = JCRace.query.filter(JCRace.selected == 1).order_by(JCRace.create_at.desc(),
+                                                                     JCRace.race_id.desc()).first()
+        if not jc_race:
+            return CommonJsonRet(400, False, "No Activity Match", {})()
+        race_id = jc_race.race_id
         race = Races.query.filter(Races.race_id == race_id).first()
         if not race:
             return CommonJsonRet(400, False, "Invalid race_id", {})()
@@ -332,7 +336,7 @@ from (SELECT
             )
         if race.is_delete == 1 or race.is_started != 3:
             able_to_bet = 0
-        odds = JCRace.query.filter(JCRace.race_id == race.race_id).first()._odds
+        odds = jc_race._odds
         for odd in odds:
             header = odd.header
             data.get("correct_scores").get(header).append(
@@ -350,10 +354,9 @@ from (SELECT
         return CommonJsonRet(200, True, "success", data)()
 
     @AuthToken()
-    def post(self, race_id, user_id):
+    def post(self, user_id):
         """
         提交用户下注方案
-        :param race_id:
         :param user_id:
         :return:
         """
@@ -372,11 +375,19 @@ from (SELECT
         if not 100 <= number <= 100000:
             return CommonJsonRet(400, False, "Point must between 100 and 100000", {})()
         query_start = time.time()
+
+        # 判断比赛
+        jc_race = JCRace.query.filter(JCRace.selected == 1).order_by(JCRace.create_at.desc(),
+                                                                     JCRace.race_id.desc()).first()
+        if not jc_race:
+            return CommonJsonRet(400, False, "No Activity Match", {})()
+        race_id = jc_race.race_id
+
         # 判断用户是否已参加
         jc_ticket_ = JCTicket.query.filter(JCTicket.rid == race_id, JCTicket.uid == user_id).first()
         if jc_ticket_:
             return CommonJsonRet(400, False, "You has been participated", {})()
-        # 判断比赛
+
         race = Races.query.filter(Races.race_id == race_id).first()
         league = League.query.filter(League.league_id == race.league_id).first().en_name
         home = Team.query.filter(Team.team_id == race.home_id).first().en_name

@@ -66,6 +66,7 @@ class JCRace(db.Model):
     settled = db.Column(db.Integer, default=0)
     # _race = db.relationship("Races", backref='_jc_race',  uselist=False)
     _odds = db.relationship("JCCorrectScore", backref='jc_race', lazy='dynamic', uselist=True)
+    create_at = db.Column(db.TIMESTAMP)
 
 
 class Races(db.Model):

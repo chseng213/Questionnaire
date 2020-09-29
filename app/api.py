@@ -1,3 +1,4 @@
+import datetime
 import json
 import time
 
@@ -285,7 +286,7 @@ class CorrectScores(Resource):
         data = {
             "race": {
                 "race_id": race.race_id,
-                "race_time": race.race_time,
+                "race_time": datetime.datetime.fromtimestamp(race.race_time).strftime("%b,%d,%Y %I:%M %p"),
                 "league": league.en_name,
                 "home": home.en_name,
                 "home_logo": OSS_URL.format(home.betradar_id),
@@ -294,9 +295,9 @@ class CorrectScores(Resource):
                 "scores": "VS" if not race.scores else "-".join(json.loads(race.scores)),
             },
             "correct_scores": {
-                "1": [],
-                "X": [],
-                "2": [],
+                "H-win": [],
+                "Draw": [],
+                "A-win": [],
             },
             "user_record": {
 
@@ -327,7 +328,7 @@ from (SELECT
             data.get("user_record").update(
                 {
                     "vote": user_record.vote,
-                    "settle_number": user_record.settle_number if user_record.settle_number else int(
+                    "settle_number": user_record.settle_number if user_record.result != "" else int(
                         user_record.odds * user_record.number),
                     "result": user_record.result,
 
@@ -346,9 +347,9 @@ from (SELECT
                     "sort": odd.sort,
                 }
             )
-        data.get("correct_scores").get("1").sort(key=lambda x: x.get("sort"))
-        data.get("correct_scores").get("2").sort(key=lambda x: x.get("sort"))
-        data.get("correct_scores").get("X").sort(key=lambda x: x.get("sort"))
+        data.get("correct_scores").get("H-win").sort(key=lambda x: x.get("sort"))
+        data.get("correct_scores").get("Draw").sort(key=lambda x: x.get("sort"))
+        data.get("correct_scores").get("A-win").sort(key=lambda x: x.get("sort"))
         data.update(has_participated=has_participated)
         data.update(able_to_bet=able_to_bet)
         return CommonJsonRet(200, True, "success", data)()
@@ -362,9 +363,10 @@ from (SELECT
         """
         # 参数定义
         parse = CommonRequestParser()
-        parse.add_argument('vote', type=str, location='form', required=True)
-        parse.add_argument('odds', type=str, location='form', required=True)
-        parse.add_argument('number', type=int, location='form', required=True)
+        parse.add_argument('vote', type=str, location='json', required=True)
+        parse.add_argument('odds', type=str, location='json', required=True)
+        parse.add_argument('number', type=int, location='json', required=True)
+        request.get_json()
         args = parse.parse_args()
         vote = args.get("vote", "")
         print(vote)
@@ -475,7 +477,7 @@ class CorrectScoresRank(Resource):
             data.update(
                 user_rank={
                     "vote": user_record.vote,
-                    "settle_number": user_record.settle_number if user_record.settle_number else int(
+                    "settle_number": user_record.settle_number if user_record.result != "" else int(
                         user_record.odds * user_record.number),
                     "result": user_record.result,
                 }

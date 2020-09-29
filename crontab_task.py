@@ -180,10 +180,9 @@ def main():
                     # 比赛结束 结算jcticket,更新排行榜,锁定jc_race
                     ticket_list = settle_ticket(race)
                     jc_race.settled = 1
-                if ticket_list:
-                    db.session.bulk_save_objects(ticket_list)
-                    db.session.commit()
-                    db.session.close()
+                db.session.bulk_save_objects(ticket_list)
+                db.session.commit()
+                db.session.close()
 
 
 if __name__ == '__main__':

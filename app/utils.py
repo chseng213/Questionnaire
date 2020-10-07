@@ -68,6 +68,8 @@ class ExtendedAPI(Api):
         # log every exception raised in the application
         # Handle HTTPExceptions
         if isinstance(err, HTTPException):
+            if isinstance(err.data.get('msg'), dict):
+                err.data.update(msg=" ".join(err.data.get("msg").keys())+" " + " ".join(err.data.get("msg").values()))
             return jsonify(err.data), 200
         # If msg attribute is not set,
         # consider it as Python core exception and

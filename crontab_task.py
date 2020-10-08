@@ -54,9 +54,11 @@ def handle_race(race):
     league = League.query.filter(League.league_id == race.league_id).first().en_name
     home = Team.query.filter(Team.team_id == race.home_id).first().en_name
     guest = Team.query.filter(Team.team_id == race.guest_id).first().en_name
-    host_score, guest_score = json.loads(race.scores)
+    host_score, guest_score = json.loads(race.scores) if race.scores else ("", "")
     scores = ":".join([host_score, guest_score])
-    if int(host_score) > int(guest_score):
+    if not host_score and not guest_score:
+        scores = ""
+    elif int(host_score) > int(guest_score):
         if scores not in VOTE_DICT.get("1"):
             scores = "1 else"
     elif int(host_score) == int(guest_score):
@@ -88,6 +90,9 @@ def settle_ticket(race, is_delete=0):
             jc_ticket.result = "C"
             account = Accounts.query.filter(Accounts.user_id == jc_ticket.uid).first()
             account.available = account.available + jc_ticket.settle_number
+
+            rank = JCRanking.query.filter(JCRanking.user_id == jc_ticket.uid, JCRanking.race_id == race.race_id).first()
+            rank.settle_num = jc_ticket.number
 
             order_num = get_order_code()
             order = Orders(

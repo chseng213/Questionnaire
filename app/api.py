@@ -366,11 +366,13 @@ from (SELECT
         parse.add_argument('vote', type=str, location='json', required=True)
         parse.add_argument('odds', type=str, location='json', required=True)
         parse.add_argument('number', type=int, location='json', required=True)
+        parse.add_argument('race_id', type=int, location='json', required=True)
         request.get_json()
         args = parse.parse_args()
         vote = args.get("vote", "")
         print(vote)
         odds = args.get("odds", "")
+        race_id = args.get("race_id", -1)
         cat = int(time.time())
         number = args.get("number", 0)
         # 判断限额
@@ -379,8 +381,9 @@ from (SELECT
         query_start = time.time()
 
         # 判断比赛
-        jc_race = JCRace.query.filter(JCRace.selected == 1).order_by(JCRace.create_at.desc(),
-                                                                     JCRace.race_id.desc()).first()
+        jc_race = JCRace.query.filter(JCRace.selected == 1, JCRace.settled == 0, JCRace.race_id == race_id).order_by(
+            JCRace.create_at.desc(),
+            JCRace.race_id.desc()).first()
         if not jc_race:
             return CommonJsonRet(400, False, "No Activity Match", {})()
         race_id = jc_race.race_id
@@ -462,10 +465,23 @@ from (SELECT
 class CorrectScoresRank(Resource):
     @AuthToken()
     def get(self, race_id, user_id):
+        parse = CommonRequestParser()
+        parse.add_argument('page', type=int, location='args', default=1, required=False)
+        parse.add_argument('per_page', type=int, location='args', default=20, required=False)
+        args = parse.parse_args()
+        page = args.get("page")
+        per_page = args.get("per_page")
+        offset = per_page * (page - 1)
+        if page <= 0 or per_page <= 0:
+            return CommonJsonRet(400, False, "Invalid parameter value", {})()
         jc_race = JCRace.query.filter(JCRace.race_id == race_id, JCRace.selected == 1).first()
         if not jc_race:
             return CommonJsonRet(400, False, "Invalid race_id", {})()
+        total = JCRanking.query.filter(JCRanking.race_id == race_id).count()
         data = {
+            "total": total,
+            "page": page,
+            "per_page": per_page,
             "user_rank": {},
             "ranking": [],
             "current_title": {},
@@ -474,24 +490,42 @@ class CorrectScoresRank(Resource):
         }
         user_record = JCTicket.query.filter(JCTicket.uid == user_id, JCTicket.rid == race_id).first()
         if user_record:
+            user_ranking = db.session.execute(
+                """
+select ranking 
+from (SELECT
+        t.*,
+        @rownum := @rownum + 1 AS ranking 
+    FROM
+        ( SELECT id, user_id,username,vote, avatar,title,pay_num, settle_num 
+            FROM `activity`.jc_ranking 
+            where race_id=:race_id  
+            ORDER BY settle_num desc,pay_num desc,id) t ,
+        ( SELECT @rownum := 0 ) r ) rr 
+    where rr.user_id=:user_id """,
+                {
+                    "race_id": race_id,
+                    "user_id": user_id
+                }).fetchone()
             data.update(
                 user_rank={
                     "vote": user_record.vote,
                     "settle_number": user_record.settle_number if user_record.result != "" else int(
                         user_record.odds * user_record.number),
                     "result": user_record.result,
+                    "ranking": int(user_ranking[0]),
                 }
             )
         rankings = db.session.execute(
-            """
+            f"""
             SELECT
                 t.*,
-                @rownum := @rownum + 1 AS ranking 
+                @rownum := @rownum + 1  AS ranking 
             FROM
                 ( SELECT id, user_id,username,vote, avatar,title,pay_num, settle_num 
                     FROM `activity`.jc_ranking 
-                    where race_id=:race_id  ORDER BY settle_num desc,pay_num desc,id) t ,
-                ( SELECT @rownum := 0 ) r
+                    where race_id=:race_id  ORDER BY settle_num desc,pay_num desc,id limit {per_page} offset {offset}) t ,
+                ( SELECT @rownum := {offset} ) r
             """,
             {"race_id": race_id}
         ).fetchall()
@@ -511,8 +545,8 @@ class CorrectScoresRank(Resource):
                         "settle_number": ranking[-2],
                     }
                 )
-                if ranking.user_id == user_id:
-                    data.get("user_rank").update(ranking=int(ranking[-1]))
+                # if ranking.user_id == user_id:
+                #     data.get("user_rank").update(ranking=int(ranking[-1]))
         else:
             # 当前title 以及历史积分榜title
             race = Races.query.filter(Races.race_id == race_id).first()
@@ -523,7 +557,8 @@ class CorrectScoresRank(Resource):
                 "race_id": race_id
             })
         # all_title
-        all_title = JCRanking.query.filter(JCRanking.race_id != race_id).group_by(JCRanking.title).all()
+        all_title = JCRanking.query.group_by(JCRanking.title).order_by(
+            JCRanking.id.desc()).limit(10).all()
         if all_title:
             for title in all_title:
                 data.get("all_title").append(
@@ -532,5 +567,57 @@ class CorrectScoresRank(Resource):
                         "race_id": title.race_id
                     }
 
+                )
+        return CommonJsonRet(200, True, "success", data)()
+
+
+class CorrectScoresRankingList(Resource):
+    @AuthToken()
+    def get(self, race_id, user_id):
+        parse = CommonRequestParser()
+        parse.add_argument('page', type=int, location='args', default=1, required=False)
+        parse.add_argument('per_page', type=int, location='args', default=20, required=False)
+        args = parse.parse_args()
+        page = args.get("page")
+        per_page = args.get("per_page")
+        offset = per_page * (page - 1)
+        if page <= 0 or per_page <= 0:
+            return CommonJsonRet(400, False, "Invalid parameter value", {})()
+        jc_race = JCRace.query.filter(JCRace.race_id == race_id, JCRace.selected == 1).first()
+        if not jc_race:
+            return CommonJsonRet(400, False, "Invalid race_id", {})()
+        total = JCRanking.query.filter(JCRanking.race_id == race_id).count()
+        data = {
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "next_page": total > page * per_page,
+            "ranking": [],
+        }
+        rankings = db.session.execute(
+            f"""
+            SELECT
+                t.*,
+                @rownum := @rownum + 1  AS ranking 
+            FROM
+                ( SELECT id, user_id,username,vote, avatar,title,pay_num, settle_num 
+                    FROM `activity`.jc_ranking 
+                    where race_id=:race_id  ORDER BY settle_num desc,pay_num desc,id limit {per_page} offset {offset}) t ,
+                ( SELECT @rownum := {offset} ) r
+            """,
+            {"race_id": race_id}
+        ).fetchall()
+        if rankings:
+
+            for ranking in rankings:
+                data.get("ranking").append(
+                    {
+                        "ranking": int(ranking[-1]),
+                        "avatar": ranking[4],
+                        "username": ranking[2],
+                        "vote": ranking[3],
+                        "pay_number": ranking[-3],
+                        "settle_number": ranking[-2],
+                    }
                 )
         return CommonJsonRet(200, True, "success", data)()

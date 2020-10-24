@@ -8,7 +8,7 @@ from sqlalchemy import desc
 
 from app.models import Questionnaire, QuestionnaireData, QuestionnaireQuestion, QuestionnaireAnswer, JCRace, Races, \
     JCTicket, Accounts, JCCorrectScore, Orders, PointTrace, JCRanking, UserProfile, League, Team
-from app.utils import AuthToken, CommonJsonRet, WTOKEN, OSS_URL, CommonRequestParser, get_order_code
+from app.utils import AuthToken, CommonJsonRet, WTOKEN, OSS_URL, CommonRequestParser, get_order_code, timeit
 from ext_app import db
 
 
@@ -268,7 +268,7 @@ class CorrectScores(Resource):
     @AuthToken()
     def get(self, user_id):
         """
-        判断比赛是否被选中
+        比赛比分赔率
         :param user_id:
         :return:
         """
@@ -464,7 +464,14 @@ from (SELECT
 
 class CorrectScoresRank(Resource):
     @AuthToken()
+    @timeit
     def get(self, race_id, user_id):
+        """
+        排行榜
+        :param race_id:
+        :param user_id:
+        :return:
+        """
         parse = CommonRequestParser()
         parse.add_argument('page', type=int, location='args', default=1, required=False)
         parse.add_argument('per_page', type=int, location='args', default=20, required=False)
@@ -556,15 +563,22 @@ from (SELECT
                 "title": " ".join([home.en_name, "VS", guest.en_name]),
                 "race_id": race_id
             })
+
         # all_title
-        all_title = JCRanking.query.group_by(JCRanking.title).order_by(
-            JCRanking.id.desc()).limit(10).all()
-        if all_title:
-            for title in all_title:
+        jc_races = JCRace.query.filter(JCRace.selected == 1).order_by(JCRace.create_at.desc(),
+                                                                      JCRace.race_id.desc()).limit(10).all()
+        if jc_races:
+            for jc_race in jc_races:
+                race = Races.query.filter(Races.race_id == jc_race.race_id).first()
+                home = Team.query.filter(Team.team_id == race.home_id).first().en_name
+                guest = Team.query.filter(Team.team_id == race.guest_id).first().en_name
+                host_score, guest_score = json.loads(race.scores) if race.scores else ("", "")
+                scores = "-".join([host_score, guest_score]) if host_score else "VS"
+
                 data.get("all_title").append(
                     {
-                        "title": title.title,
-                        "race_id": title.race_id
+                        "title": f"{home} {scores} {guest}",
+                        "race_id": jc_race.race_id
                     }
 
                 )
